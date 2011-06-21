@@ -1,0 +1,4 @@
+out/
+*.out
+*.mod
+.DS_Store
