@@ -18,20 +18,27 @@ parser.add_argument('-z', '--binwidth', type=int, default=0.1,
     help='Binwidth of z, default = 0.1')
 parser.add_argument('-o', '--output', default='zdn.out',
     type=argparse.FileType('w'), help='Output file name')
+parser.add_argument('-l', '--log', default='zdn.log',
+    type=argparse.FileType('w'), help='Log file name')
 
 
 isRangeDefined = False
 args = parser.parse_args()
 
-print("atom: " + str(args.atom))
 atqrefList= [line.split()[0] for line in args.atqref]
 atom = {}
 for atm in args.atom:
     atom[atm] = {}
     atom[atm]['index'] = [i for i in range(len(atqrefList)) if atqrefList[i] == atm]
     atom[atm]['data'] = []
-    print(atom[atm])
-#    atomIndex[atom] = [i for i in range(len(atqrefList)) if atqrefList[i] == atom ]
+
+for file in args.history:
+    print(file.name)
+    args.log.write(file.name + '\n')
+
+args.log.write(str(atom) + '\n')
+#if args.verbose:
+print(atom)
 
 def transformCoord(intCoord):
     """Transform list of Chau's integer coordinates to list of real floating values"""
@@ -70,9 +77,12 @@ for file in args.history:
             atomCounter = (lineCounter - 10) % (len(atqrefList) + 3)
             if atomCounter == 0:
                 frame += 1
-                if args.verbose == True and int(frame % (totalFrame/100)) == 0:
-                    print("Reading file: ", fileCounter, ' of ', len(args.history))
-                    print("Reading frame: ", str(frame), ' of ', totalFrame)
+                if int(frame % (totalFrame/100)) == 0:
+                    args.log.write("Reading file: " + str(fileCounter) + ' of ' + str(len(args.history)) + '\n')
+                    args.log.write("Reading frame: " + str(frame) + ' of ' + str(totalFrame) + '\n')
+                    if args.verbose:
+                        print("Reading file: ", fileCounter, ' of ', len(args.history))
+                        print("Reading frame: ", str(frame), ' of ', totalFrame)
 #                    print("Reading frame: ", str(frame), ' of ', totalFrame, '=',
 #                           str(round(frame/totalFrame*100)) + '%')
             for atm in atom.keys():
