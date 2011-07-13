@@ -16,6 +16,8 @@ parser.add_argument('-v', '--verbose', default=False,
     help='Show running progress')
 parser.add_argument('-z', '--binwidth', type=int, default=0.1,
     help='Binwidth of z, default = 0.1')
+parser.add_argument('-o', '--output', default='zdn.out',
+    type=argparse.FileType('w'), help='Output file name')
 
 
 isRangeDefined = False
@@ -36,20 +38,20 @@ def transformCoord(intCoord):
     TRANS_CONST = 2.0**30 #Chau's constant for transforming integer data
     return [float(i) * 500.0 / TRANS_CONST for i in intCoord]
 
-def getBinIndex(z, min, max, dz):
-    """Return bin index, starting from 0, ending at (max-min)/dz - 1"""
-    z = float(z) 
-    return int((z - min) / dz)
-
-
 def wrapCoord(z, min, max):
     """Return a wrapped value of z inside min and max"""
-    return z - (max - min) * floor((z - min) / (max - min))
+    return z - (max - min) * math.floor((z - min) / (max - min))
 
+def getBinIndex(z, min, max, dz):
+    """Return bin index, starting from 0, ending at (max-min)/dz - 1"""
+    z = wrapCoord(float(z), min, max)
+    return int((z - min) / dz)
 
-dim = [0., 0., 0.]
+#dim = [0., 0., 0.]
+fileCounter = 0
 for file in args.history:
     lineCounter = 0
+    fileCounter += 1
     for line in file:
         if lineCounter == 0: 
             if not int(line.split()[3]) == len(atqrefList):
@@ -61,22 +63,40 @@ for file in args.history:
         elif lineCounter == 4 and not isRangeDefined:
             zmax = float(line.split()[2]) / 2.0 
             zmin = -zmax
-            atom[atm]['data'] = [0] * (int((zmax - zmin) / args.binwidth) + 1)
+            for atm in args.atom:
+                atom[atm]['data'] = [0] * (int((zmax - zmin) / args.binwidth) + 1)
             isRangeDefined = True
         elif lineCounter >= 10:
             atomCounter = (lineCounter - 10) % (len(atqrefList) + 3)
             if atomCounter == 0:
                 frame += 1
                 if args.verbose == True and int(frame % (totalFrame/100)) == 0:
-                    print("reading frame: ", str(frame), ', ', str(round(frame/totalFrame*100)) + '%')
-            for atm in args.atom:
+                    print("Reading file: ", fileCounter, ' of ', len(args.history))
+                    print("Reading frame: ", str(frame), ' of ', totalFrame)
+#                    print("Reading frame: ", str(frame), ' of ', totalFrame, '=',
+#                           str(round(frame/totalFrame*100)) + '%')
+            for atm in atom.keys():
                 if atomCounter in atom[atm]['index']:
                     datum = float(transformCoord(line.split())[-1])
 #                    try:
                     atom[atm]['data'][getBinIndex(datum, zmin, zmax, args.binwidth)] += 1
 #                    except IndexError:
+#                        print("datum, zmin, zmax, args.binwidth")
+#                        print(datum, zmin, zmax, args.binwidth)
+#                        print('getBinIndex =', getBinIndex(datum, zmin, zmax, args.binwidth))
+#                        print("len(atom[atm]['data']", len(atom[atm]['data']))
 #                        print("warning: some points are out of bounds.")
         lineCounter += 1
     print("Finished reading ", str(totalFrame), " frame in file: ", file.name)
 
-print(atom)
+#Normalize
+for atm in atom.keys():
+    summ = float(sum(atom[atm]['data']))
+    atom[atm]['data'] = [atom[atm]['data'][i] / summ for i in range(len(atom[atm]['data']))]
+#Output
+    args.output.write('#' + atm + '\n')
+    for i in range(len(atom[atm]['data'])):
+        args.output.write(str(zmin + (i+0.5) * args.binwidth) + ' ' + str(atom[atm]['data'][i]) + '\n')
+#        print(zmin + (i+0.5) * args.binwidth, atom[atm]['data'][i])
+    args.output.write('\n\n')
+
